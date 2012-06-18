@@ -323,7 +323,7 @@ public class AudioOutputQueue implements AudioClock {
 		}
 	}
 
-	AudioOutputQueue(final AudioStreamInformationProvider streamInfoProvider) throws LineUnavailableException {
+	public AudioOutputQueue(final AudioStreamInformationProvider streamInfoProvider) throws LineUnavailableException {
 		final AudioFormat audioFormat = streamInfoProvider.getAudioFormat();
 
 		/* OSX does not support unsigned PCM lines. We thust always request

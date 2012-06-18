@@ -19,7 +19,7 @@ package org.phlo.AirReceiver;
 
 @SuppressWarnings("serial")
 public class ProtocolException extends Exception {
-	ProtocolException(final String message) {
+	public ProtocolException(final String message) {
 		super(message);
 	}
 }

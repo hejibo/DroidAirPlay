@@ -15,26 +15,66 @@
  * along with AirReceiver.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.phlo.AirReceiver;
+package nz.co.iswe.droidairplay.audio;
 
-import java.net.*;
-import java.nio.charset.*;
-import java.util.*;
+import java.net.InetSocketAddress;
+import java.net.SocketAddress;
+import java.nio.charset.Charset;
+import java.util.Arrays;
+import java.util.Deque;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import java.util.regex.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
-import javax.crypto.*;
-import javax.crypto.spec.*;
+import javax.crypto.Cipher;
+import javax.crypto.SecretKey;
+import javax.crypto.spec.IvParameterSpec;
+import javax.crypto.spec.SecretKeySpec;
 
 import org.jboss.netty.bootstrap.ConnectionlessBootstrap;
 import org.jboss.netty.buffer.ChannelBuffers;
-import org.jboss.netty.channel.*;
-import org.jboss.netty.channel.group.*;
+import org.jboss.netty.channel.Channel;
+import org.jboss.netty.channel.ChannelFuture;
+import org.jboss.netty.channel.ChannelFutureListener;
+import org.jboss.netty.channel.ChannelHandler;
+import org.jboss.netty.channel.ChannelHandlerContext;
+import org.jboss.netty.channel.ChannelPipeline;
+import org.jboss.netty.channel.ChannelPipelineFactory;
+import org.jboss.netty.channel.ChannelStateEvent;
+import org.jboss.netty.channel.Channels;
+import org.jboss.netty.channel.FixedReceiveBufferSizePredictorFactory;
+import org.jboss.netty.channel.MessageEvent;
+import org.jboss.netty.channel.SimpleChannelDownstreamHandler;
+import org.jboss.netty.channel.SimpleChannelUpstreamHandler;
+import org.jboss.netty.channel.UpstreamMessageEvent;
+import org.jboss.netty.channel.group.ChannelGroup;
+import org.jboss.netty.channel.group.DefaultChannelGroup;
 import org.jboss.netty.channel.socket.nio.NioDatagramChannelFactory;
-import org.jboss.netty.handler.codec.http.*;
-import org.jboss.netty.handler.codec.rtsp.*;
+import org.jboss.netty.handler.codec.http.DefaultHttpResponse;
+import org.jboss.netty.handler.codec.http.HttpMethod;
+import org.jboss.netty.handler.codec.http.HttpRequest;
+import org.jboss.netty.handler.codec.http.HttpResponse;
+import org.jboss.netty.handler.codec.rtsp.RtspResponseStatuses;
+import org.jboss.netty.handler.codec.rtsp.RtspVersions;
+import org.phlo.AirReceiver.AirReceiver;
+import org.phlo.AirReceiver.AirTunesCrytography;
+import org.phlo.AirReceiver.AudioOutputQueue;
+import org.phlo.AirReceiver.AudioStreamInformationProvider;
+import org.phlo.AirReceiver.Base64;
+import org.phlo.AirReceiver.ExceptionLoggingHandler;
+import org.phlo.AirReceiver.ProtocolException;
+import org.phlo.AirReceiver.RaopRtpAudioAlacDecodeHandler;
+import org.phlo.AirReceiver.RaopRtpAudioDecryptionHandler;
+import org.phlo.AirReceiver.RaopRtpDecodeHandler;
+import org.phlo.AirReceiver.RaopRtpPacket;
+import org.phlo.AirReceiver.RaopRtpRetransmitRequestHandler;
+import org.phlo.AirReceiver.RaopRtpTimingHandler;
+import org.phlo.AirReceiver.RaopRtspMethods;
+import org.phlo.AirReceiver.RtpEncodeHandler;
+import org.phlo.AirReceiver.RtpLoggingHandler;
 
 /**
  * Handles the configuration, creation and destruction of RTP channels.
@@ -267,7 +307,7 @@ public class RaopAudioHandler extends SimpleChannelUpstreamHandler {
 	 * <attribute>=<value>
 	 * }
 	 */
-	private static Pattern s_pattern_sdp_line = Pattern.compile("^([a-z])=(.*)$");
+	protected static Pattern s_pattern_sdp_line = Pattern.compile("^([a-z])=(.*)$");
 	
 	/**
 	 * SDP attribute {@code m}. Format is
@@ -279,7 +319,7 @@ public class RaopAudioHandler extends SimpleChannelUpstreamHandler {
 	 * RAOP/AirTunes always required {@code <media>=audio, <transport>=RTP/AVP}
 	 * and only a single format is allowed. The port is ignored.
 	 */
-	private static Pattern s_pattern_sdp_m = Pattern.compile("^audio ([^ ]+) RTP/AVP ([0-9]+)$");
+	protected static Pattern s_pattern_sdp_m = Pattern.compile("^audio ([^ ]+) RTP/AVP ([0-9]+)$");
 	
 	/**
 	 * SDP attribute {@code a}. Format is
@@ -295,10 +335,12 @@ public class RaopAudioHandler extends SimpleChannelUpstreamHandler {
 	 * <li> {@code <attribute>=rtpmap} 
 	 * <li> {@code <attribute>=fmtp} 
 	 * <li> {@code <attribute>=rsaaeskey} 
-	 * <li> {@code <attribute>=aesiv} 
+	 * <li> {@code <attribute>=aesiv}
+	 * 
+	 * <li> {@code <attribute>=min-latency}
 	 * </ul>
 	 */
-	private static Pattern s_pattern_sdp_a = Pattern.compile("^([a-z]+):(.*)$");
+	protected static Pattern s_pattern_sdp_a = Pattern.compile("^(\\w+):?(.*)$"); //changed to support dash in the attribute name
 	
 	/**
 	 * SDP {@code a} attribute {@code rtpmap}. Format is
@@ -324,11 +366,13 @@ public class RaopAudioHandler extends SimpleChannelUpstreamHandler {
 		throws Exception
 	{
 		/* ANNOUNCE must contain stream information in SDP format */
-		if (!req.containsHeader("Content-Type"))
+		if ( ! req.containsHeader("Content-Type")){
 			throw new ProtocolException("No Content-Type header");
-		if (!"application/sdp".equals(req.getHeader("Content-Type")))
+		}
+		if (!"application/sdp".equals(req.getHeader("Content-Type"))){
 			throw new ProtocolException("Invalid Content-Type header, expected application/sdp but got " + req.getHeader("Content-Type"));
-
+		}
+		
 		reset();
 
 		/* Get SDP stream information */
@@ -343,11 +387,11 @@ public class RaopAudioHandler extends SimpleChannelUpstreamHandler {
 
 		for(final String line: dsp.split("\n")) {
 			/* Split SDP line into attribute and setting */
-			final Matcher line_matcher = s_pattern_sdp_line.matcher(line);
-			if (!line_matcher.matches())
+			final Matcher lineMatcher = s_pattern_sdp_line.matcher(line);
+			if (!lineMatcher.matches())
 				throw new ProtocolException("Cannot parse SDP line " + line);
-			final char attribute = line_matcher.group(1).charAt(0);
-			final String setting = line_matcher.group(2);
+			final char attribute = lineMatcher.group(1).charAt(0);
+			final String setting = lineMatcher.group(2);
 
 			/* Handle attributes */
 			switch (attribute) {
@@ -360,10 +404,15 @@ public class RaopAudioHandler extends SimpleChannelUpstreamHandler {
 					break;
 
 				case 'a':
+					s_logger.info("setting: " + setting);
+					
 					/* Attribute a. Defines various session properties */
 					final Matcher a_matcher = s_pattern_sdp_a.matcher(setting);
-					if (!a_matcher.matches())
+					
+					if ( ! a_matcher.matches() ){
 						throw new ProtocolException("Cannot parse SDP " + attribute + "'s setting " + setting);
+					}
+					
 					final String key = a_matcher.group(1);
 					final String value = a_matcher.group(2);
 
