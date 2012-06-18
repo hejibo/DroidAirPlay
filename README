@@ -1,3 +1,20 @@
+DroidAirPlay
+===========
+Rafael Almeida (rafael@iswe.co.nz)
+July 2012
+
+Overview
+---------------
+The ideia is to develop a AirPlay Receiver that runs on Android tablet and is part of a wider range of apps for in-car-systems.
+The ideia is that the tablet is used as a car dashboard to control all car functions and the ability to stream audio, video e fotos
+from iOS devices is achieved throught this project.
+
+This project is based on the work done by Florian G. Pflug <fgp [at] phlo.org> project's AirReceiver.
+
+AirReceiver is a desktop AirPlay receiver application, bellow is a full description:
+
+NOTE: Work on DroidAirPlay has just worked (as of June 2012) so most of the code and project strucutre is the same as AirReceiver (since this is a fork from AirReceiver's repository).
+
 AirReceiver
 ===========
 Florian G. Pflug <fgp [at] phlo.org>
