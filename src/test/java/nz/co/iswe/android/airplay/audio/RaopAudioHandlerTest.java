@@ -1,8 +1,10 @@
-package nz.co.iswe.droidairplay.audio;
+package nz.co.iswe.android.airplay.audio;
 
 import java.util.regex.Matcher;
 
 import junit.framework.Assert;
+
+import nz.co.iswe.android.airplay.audio.RaopAudioHandler;
 
 import org.junit.Test;
 

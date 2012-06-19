@@ -87,8 +87,7 @@ public final class AirTunesCrytography {
 	/**
 	 * Replacement for JCA/JCE's {@link javax.crypto.Cipher#getInstance}.
 	 * The original method only accepts JCE providers from signed jars,
-	 * which prevents us from bundling our cryptography provider Bouncy Caster
-	 * with the application.
+	 * which prevents us from bundling our cryptography provider Bouncy Caster with the application.
 	 *
 	 * @param transformation the transformation to find an implementation for
 	 */
@@ -197,6 +196,10 @@ public final class AirTunesCrytography {
 	 * @throws Throwable in case of an error
 	 */
 	private static Cipher getCipher(final CipherSpi cipherSpi, final String transformation) throws Throwable {
+		
+		//06-19 15:22:00.727: W/erverSocketPipelineSink(31810): Caused by: java.lang.NoSuchMethodException: <init> [class javax.crypto.CipherSpi, class java.lang.String]
+
+		
 		/* This API isn't public - usually you're expected to simply use Cipher.getInstance().
 		 * Due to the signed-jar restriction for JCE providers that is not an option, so we
 		 * use one of the private constructors of Cipher.

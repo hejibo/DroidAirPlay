@@ -15,25 +15,36 @@
  * along with AirReceiver.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.phlo.AirReceiver;
+package nz.co.iswe.android.airplay.audio;
+
+import java.security.NoSuchAlgorithmException;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import javax.crypto.Cipher;
+import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.IvParameterSpec;
 
-import org.jboss.netty.buffer.*;
-import org.jboss.netty.channel.*;
+import org.jboss.netty.buffer.ChannelBuffer;
+import org.jboss.netty.channel.Channel;
+import org.jboss.netty.channel.ChannelHandlerContext;
 import org.jboss.netty.handler.codec.oneone.OneToOneDecoder;
+import org.phlo.AirReceiver.RaopRtpPacket;
 
 /**
  * De-crypt AES encoded audio data
  */
 public class RaopRtpAudioDecryptionHandler extends OneToOneDecoder {
+	
+	private static final Logger LOG = Logger.getLogger(RaopRtpAudioDecryptionHandler.class.getName());
+	
 	/**
 	 *  The AES cipher. We request no padding because RAOP/AirTunes only encrypts full
 	 * block anyway and leaves the trailing byte unencrypted
 	 */
-	private final Cipher m_aesCipher = AirTunesCrytography.getCipher("AES/CBC/NoPadding");
+	//private final Cipher m_aesCipher = AirTunesCrytography.getCipher("AES/CBC/NoPadding");
+	private Cipher aesCipher; 
 	
 	/**
 	 *  AES key */
@@ -47,6 +58,22 @@ public class RaopRtpAudioDecryptionHandler extends OneToOneDecoder {
 	public RaopRtpAudioDecryptionHandler(final SecretKey aesKey, final IvParameterSpec aesIv) {
 		m_aesKey = aesKey;
 		m_aesIv = aesIv;
+		
+		
+		String transformation = "AES/CBC/NoPadding";
+        try {
+        	aesCipher = Cipher.getInstance(transformation);
+        	
+        	LOG.info("Cipher acquired sucessfully. transformation: " + transformation);
+		} 
+        catch (NoSuchAlgorithmException e) {
+			LOG.log(Level.SEVERE, "Error getting the Cipher. transformation: " + transformation, e);
+		} 
+        catch (NoSuchPaddingException e) {
+        	LOG.log(Level.SEVERE, "Error getting the Cipher. transformation: " + transformation, e);
+		}
+        
+		
 	}
 
 	@Override
@@ -60,11 +87,11 @@ public class RaopRtpAudioDecryptionHandler extends OneToOneDecoder {
 			/* Cipher is restarted for every packet. We simply overwrite the
 			 * encrypted data with the corresponding plain text
 			 */
-			m_aesCipher.init(Cipher.DECRYPT_MODE, m_aesKey, m_aesIv);
+			aesCipher.init(Cipher.DECRYPT_MODE, m_aesKey, m_aesIv);
 			for(int i=0; (i + 16) <= audioPayload.capacity(); i += 16) {
 				byte[] block = new byte[16];
 				audioPayload.getBytes(i, block);
-				block = m_aesCipher.update(block);
+				block = aesCipher.update(block);
 				audioPayload.setBytes(i, block);
 			}
 		}

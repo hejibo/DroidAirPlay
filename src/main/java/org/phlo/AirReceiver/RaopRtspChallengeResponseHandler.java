@@ -17,13 +17,21 @@
 
 package org.phlo.AirReceiver;
 
-import java.net.*;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
+import java.security.NoSuchAlgorithmException;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
-import javax.crypto.*;
+import javax.crypto.Cipher;
+import javax.crypto.NoSuchPaddingException;
 
-import org.jboss.netty.channel.*;
-import org.jboss.netty.handler.codec.http.*;
+import org.jboss.netty.channel.ChannelHandlerContext;
+import org.jboss.netty.channel.MessageEvent;
+import org.jboss.netty.channel.SimpleChannelHandler;
+import org.jboss.netty.handler.codec.http.HttpRequest;
+import org.jboss.netty.handler.codec.http.HttpResponse;
 
 /**
  * Adds an {@code Apple-Response} header to a response if the request contain
@@ -34,16 +42,32 @@ public class RaopRtspChallengeResponseHandler extends SimpleChannelHandler
 	private static final String HeaderChallenge = "Apple-Challenge";
 	private static final String HeaderSignature = "Apple-Response";
 
+	private static final Logger LOG = Logger.getLogger(RaopRtspChallengeResponseHandler.class.getName());
+	
+	
 	private final byte[] m_hwAddress;
-	private final Cipher m_rsaPkCS1PaddingCipher = AirTunesCrytography.getCipher("RSA/None/PKCS1Padding");
-
+	//private final Cipher m_rsaPkCS1PaddingCipher = AirTunesCrytography.getCipher("RSA/None/PKCS1Padding");
+	private Cipher rsaPkCS1PaddingCipher;
+	
 	private byte[] m_challenge;
 	private InetAddress m_localAddress;
 
 	public RaopRtspChallengeResponseHandler(final byte[] hwAddress) {
 		assert hwAddress.length == 6;
-
 		m_hwAddress = hwAddress;
+		
+		String transformation = "RSA/None/PKCS1Padding";
+        try {
+        	rsaPkCS1PaddingCipher = Cipher.getInstance(transformation);
+        	
+        	LOG.info("Cipher acquired sucessfully. transformation: " + transformation);
+		} 
+        catch (NoSuchAlgorithmException e) {
+			LOG.log(Level.SEVERE, "Error getting the Cipher. transformation: " + transformation, e);
+		} 
+        catch (NoSuchPaddingException e) {
+        	LOG.log(Level.SEVERE, "Error getting the Cipher. transformation: " + transformation, e);
+		}
 	}
 
 	@Override
@@ -114,8 +138,8 @@ public class RaopRtspChallengeResponseHandler extends SimpleChannelHandler
 			sigData.put((byte)0);
 
 		try {
-			m_rsaPkCS1PaddingCipher.init(Cipher.ENCRYPT_MODE, AirTunesCrytography.PrivateKey);
-			return m_rsaPkCS1PaddingCipher.doFinal(sigData.array());
+			rsaPkCS1PaddingCipher.init(Cipher.ENCRYPT_MODE, AirTunesCrytography.PrivateKey);
+			return rsaPkCS1PaddingCipher.doFinal(sigData.array());
 		}
 		catch (final Exception e) {
 			throw new RuntimeException("Unable to sign response", e);
