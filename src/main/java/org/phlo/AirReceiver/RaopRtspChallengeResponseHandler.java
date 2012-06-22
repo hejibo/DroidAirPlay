@@ -27,6 +27,8 @@ import java.util.logging.Logger;
 import javax.crypto.Cipher;
 import javax.crypto.NoSuchPaddingException;
 
+import nz.co.iswe.android.airplay.crypto.AirTunesCryptography;
+
 import org.jboss.netty.channel.ChannelHandlerContext;
 import org.jboss.netty.channel.MessageEvent;
 import org.jboss.netty.channel.SimpleChannelHandler;
@@ -138,7 +140,7 @@ public class RaopRtspChallengeResponseHandler extends SimpleChannelHandler
 			sigData.put((byte)0);
 
 		try {
-			rsaPkCS1PaddingCipher.init(Cipher.ENCRYPT_MODE, AirTunesCrytography.PrivateKey);
+			rsaPkCS1PaddingCipher.init(Cipher.ENCRYPT_MODE, AirTunesCryptography.PrivateKey);
 			return rsaPkCS1PaddingCipher.doFinal(sigData.array());
 		}
 		catch (final Exception e) {

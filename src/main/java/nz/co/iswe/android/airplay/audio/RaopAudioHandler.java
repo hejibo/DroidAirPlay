@@ -37,6 +37,7 @@ import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 
 import nz.co.iswe.android.airplay.AirPlayServer;
+import nz.co.iswe.android.airplay.crypto.AirTunesCryptography;
 
 import org.jboss.netty.bootstrap.ConnectionlessBootstrap;
 import org.jboss.netty.buffer.ChannelBuffers;
@@ -63,13 +64,9 @@ import org.jboss.netty.handler.codec.http.HttpRequest;
 import org.jboss.netty.handler.codec.http.HttpResponse;
 import org.jboss.netty.handler.codec.rtsp.RtspResponseStatuses;
 import org.jboss.netty.handler.codec.rtsp.RtspVersions;
-import org.phlo.AirReceiver.AirTunesCrytography;
-import org.phlo.AirReceiver.AudioOutputQueue;
-import org.phlo.AirReceiver.AudioStreamInformationProvider;
 import org.phlo.AirReceiver.Base64;
 import org.phlo.AirReceiver.ExceptionLoggingHandler;
 import org.phlo.AirReceiver.ProtocolException;
-import org.phlo.AirReceiver.RaopRtpAudioAlacDecodeHandler;
 import org.phlo.AirReceiver.RaopRtpDecodeHandler;
 import org.phlo.AirReceiver.RaopRtpPacket;
 import org.phlo.AirReceiver.RaopRtpRetransmitRequestHandler;
@@ -99,8 +96,8 @@ public class RaopAudioHandler extends SimpleChannelUpstreamHandler {
 	private class RaopRtpInputToAudioRouterUpstreamHandler extends SimpleChannelUpstreamHandler {
 		@Override
 		public void messageReceived(final ChannelHandlerContext ctx, final MessageEvent evt)
-			throws Exception
-		{
+			throws Exception {
+			
 			/* Get audio channel from the enclosing RaopAudioHandler */
 			Channel audioChannel = null;
 			synchronized(RaopAudioHandler.this) {
@@ -131,18 +128,21 @@ public class RaopAudioHandler extends SimpleChannelUpstreamHandler {
 			/* Get control and timing channel from the enclosing RaopAudioHandler */
 			Channel controlChannel = null;
 			Channel timingChannel = null;
+			
 			synchronized(RaopAudioHandler.this) {
 				controlChannel = m_controlChannel;
 				timingChannel = m_timingChannel;
 			}
 
 			if (packet instanceof RaopRtpPacket.RetransmitRequest) {
-				if ((controlChannel != null) && controlChannel.isOpen() && controlChannel.isWritable())
+				if ((controlChannel != null) && controlChannel.isOpen() && controlChannel.isWritable()){
 					controlChannel.write(evt.getMessage());
+				}
 			}
 			else if (packet instanceof RaopRtpPacket.TimingRequest) {
-				if ((timingChannel != null) && timingChannel.isOpen() && timingChannel.isWritable())
+				if ((timingChannel != null) && timingChannel.isOpen() && timingChannel.isWritable()){
 					timingChannel.write(evt.getMessage());
+				}
 			}
 			else {
 				super.writeRequested(ctx, evt);
@@ -157,9 +157,9 @@ public class RaopAudioHandler extends SimpleChannelUpstreamHandler {
 	public class RaopRtpAudioEnqueueHandler extends SimpleChannelUpstreamHandler {
 		@Override
 		public void messageReceived(final ChannelHandlerContext ctx, final MessageEvent evt)
-			throws Exception
-		{
-			if (!(evt.getMessage() instanceof RaopRtpPacket.Audio)) {
+			throws Exception {
+			if ( ! (evt.getMessage() instanceof RaopRtpPacket.Audio) ) {
+				//in case it is NOT a Audio packet
 				super.messageReceived(ctx, evt);
 				return;
 			}
@@ -173,11 +173,17 @@ public class RaopAudioHandler extends SimpleChannelUpstreamHandler {
 			}
 
 			if (audioOutputQueue != null) {
+				//buffer array the byte with the audio samples
 				final byte[] samples = new byte[audioPacket.getPayload().capacity()];
+				//get the bytes
 				audioPacket.getPayload().getBytes(0, samples);
+				
+				//send the audio buffer to the autioOutputQueue
 				m_audioOutputQueue.enqueue(audioPacket.getTimeStamp(), samples);
-				if (LOG.isLoggable(Level.FINEST))
+				
+				if (LOG.isLoggable(Level.FINEST)){
 					LOG.finest("Packet with sequence " + audioPacket.getSequence() + " for playback at " + audioPacket.getTimeStamp() + " submitted to audio output queue");
+				}
 			}
 			else {
 				LOG.warning("No audio queue available, dropping packet");
@@ -197,7 +203,7 @@ public class RaopAudioHandler extends SimpleChannelUpstreamHandler {
 	/**
 	 * Executor service used for the RTP channels
 	 */
-	private final ExecutorService m_rtpExecutorService;
+	private final ExecutorService rtpExecutorService;
 
 	private final ChannelHandler m_exceptionLoggingHandler = new ExceptionLoggingHandler();
 	private final ChannelHandler m_decodeHandler = new RaopRtpDecodeHandler();
@@ -205,6 +211,7 @@ public class RaopAudioHandler extends SimpleChannelUpstreamHandler {
 	private final ChannelHandler m_packetLoggingHandler = new RtpLoggingHandler();
 	private final ChannelHandler m_inputToAudioRouterDownstreamHandler = new RaopRtpInputToAudioRouterUpstreamHandler();
 	private final ChannelHandler m_audioToOutputRouterUpstreamHandler = new RaopRtpAudioToOutputRouterDownstreamHandler();
+	
 	private ChannelHandler m_decryptionHandler;
 	private ChannelHandler m_audioDecodeHandler;
 	private ChannelHandler m_resendRequestHandler;
@@ -228,8 +235,9 @@ public class RaopAudioHandler extends SimpleChannelUpstreamHandler {
 	 * @param rtpExecutorService
 	 */
 	public RaopAudioHandler(final ExecutorService rtpExecutorService) {
-		m_rtpExecutorService = rtpExecutorService;
+		this.rtpExecutorService = rtpExecutorService;
 		
+		//TODO: MOve this to the AirTunesCryptography class
 		String transformation = "RSA/None/OAEPWithSHA1AndMGF1Padding";
         try {
         	rsaPkCS1OaepCipher = Cipher.getInstance(transformation);
@@ -250,8 +258,9 @@ public class RaopAudioHandler extends SimpleChannelUpstreamHandler {
 	 * Resets stream-related data (i.e. undoes the effect of ANNOUNCE, SETUP and RECORD
 	 */
 	private void reset() {
-		if (m_audioOutputQueue != null)
+		if (m_audioOutputQueue != null){
 			m_audioOutputQueue.close();
+		}
 
 		m_rtpChannels.close();
 
@@ -270,8 +279,7 @@ public class RaopAudioHandler extends SimpleChannelUpstreamHandler {
 
 	@Override
 	public void channelClosed(final ChannelHandlerContext ctx, final ChannelStateEvent evt)
-		throws Exception
-	{
+		throws Exception {
 		LOG.info("RTSP connection was shut down, closing RTP channels and audio output queue");
 
 		synchronized(this) {
@@ -381,21 +389,37 @@ public class RaopAudioHandler extends SimpleChannelUpstreamHandler {
 	 * </ul>
 	 */
 	public synchronized void announceReceived(final ChannelHandlerContext ctx, final HttpRequest req)
-		throws Exception
-	{
+		throws Exception {
+		
 		/* ANNOUNCE must contain stream information in SDP format */
 		if ( ! req.containsHeader("Content-Type")){
 			throw new ProtocolException("No Content-Type header");
 		}
-		if (!"application/sdp".equals(req.getHeader("Content-Type"))){
+		if ( ! "application/sdp".equals(req.getHeader("Content-Type")) ){
 			throw new ProtocolException("Invalid Content-Type header, expected application/sdp but got " + req.getHeader("Content-Type"));
 		}
 		
 		reset();
 
 		/* Get SDP stream information */
-		final String dsp = req.getContent().toString(Charset.forName("ASCII")).replace("\r", "");
+		final String sdp = req.getContent().toString(Charset.forName("ASCII")).replace("\r", "");
 
+		/**
+		 * Sample sdp content:
+		 * 
+			v=0
+			o=iTunes 3413821438 0 IN IP4 fe80::217:f2ff:fe0f:e0f6
+			s=iTunes
+			c=IN IP4 fe80::5a55:caff:fe1a:e187
+			t=0 0
+			m=audio 0 RTP/AVP 96
+			a=rtpmap:96 AppleLossless
+			a=fmtp:96 352 0 16 40 10 14 2 255 0 0 44100
+			a=fpaeskey:RlBMWQECAQAAAAA8AAAAAPFOnNe+zWb5/n4L5KZkE2AAAAAQlDx69reTdwHF9LaNmhiRURTAbcL4brYAceAkZ49YirXm62N4
+			a=aesiv:5b+YZi9Ikb845BmNhaVo+Q
+		 */
+		
+		//TODO: move this parsing into a SDP class.
 		SecretKey aesKey = null;
 		IvParameterSpec aesIv = null;
 		int alacFormatIndex = -1;
@@ -403,7 +427,8 @@ public class RaopAudioHandler extends SimpleChannelUpstreamHandler {
 		int descriptionFormatIndex = -1;
 		String[] formatOptions = null;
 
-		for(final String line: dsp.split("\n")) {
+		//go through each line and parse the sdp parameters
+		for(final String line: sdp.split("\n")) {
 			/* Split SDP line into attribute and setting */
 			final Matcher lineMatcher = s_pattern_sdp_line.matcher(line);
 			if (!lineMatcher.matches())
@@ -459,7 +484,7 @@ public class RaopAudioHandler extends SimpleChannelUpstreamHandler {
 						 */
 						byte[] aesKeyRaw;
 
-						rsaPkCS1OaepCipher.init(Cipher.DECRYPT_MODE, AirTunesCrytography.PrivateKey);
+						rsaPkCS1OaepCipher.init(Cipher.DECRYPT_MODE, AirTunesCryptography.PrivateKey);
 						aesKeyRaw = rsaPkCS1OaepCipher.doFinal(Base64.decodeUnpadded(value));
 
 						aesKey = new SecretKeySpec(aesKeyRaw, "AES");
@@ -479,20 +504,24 @@ public class RaopAudioHandler extends SimpleChannelUpstreamHandler {
 		/* Validate SDP information */
 
 		/* The format index of the stream must match the format index from the rtpmap attribute */
-		if (alacFormatIndex != audioFormatIndex)
+		if (alacFormatIndex != audioFormatIndex){
 			throw new ProtocolException("Audio format " + audioFormatIndex + " not supported");
+		}
 
 		/* The format index from the rtpmap attribute must match the format index from the fmtp attribute */
-		if (audioFormatIndex != descriptionFormatIndex)
+		if (audioFormatIndex != descriptionFormatIndex){
 			throw new ProtocolException("Auido format " + audioFormatIndex + " lacks fmtp line");
+		}
 
 		/* The fmtp attribute must have contained format options */
-		if (formatOptions == null)
+		if (formatOptions == null){
 			throw new ProtocolException("Auido format " + audioFormatIndex + " incomplete, format options not set");
+		}
 
 		/* Create decryption handler if an AES key and IV was specified */
-		if ((aesKey != null) && (aesIv != null))
+		if ((aesKey != null) && (aesIv != null)){
 			m_decryptionHandler = new RaopRtpAudioDecryptionHandler(aesKey, aesIv);
+		}
 
 		/* Create an ALAC decoder. The ALAC decoder is our stream information provider */
 		final RaopRtpAudioAlacDecodeHandler handler = new RaopRtpAudioAlacDecodeHandler(formatOptions);
@@ -508,6 +537,7 @@ public class RaopAudioHandler extends SimpleChannelUpstreamHandler {
 		/* Create retransmit request handler using the audio output queue as time source */
 		m_resendRequestHandler = new RaopRtpRetransmitRequestHandler(m_audioStreamInformationProvider, m_audioOutputQueue);
 
+		//send response back to the client
 		final HttpResponse response = new DefaultHttpResponse(RtspVersions.RTSP_1_0,  RtspResponseStatuses.OK);
 		ctx.getChannel().write(response);
 	}
@@ -699,7 +729,7 @@ public class RaopAudioHandler extends SimpleChannelUpstreamHandler {
 				if ("volume".equals(name)) {
 					/* Set output gain */
 					if (m_audioOutputQueue != null)
-						m_audioOutputQueue.setGain(Float.parseFloat(value));
+						m_audioOutputQueue.setRequestedVolume(Float.parseFloat(value));
 
 				}
 			}
@@ -723,7 +753,7 @@ public class RaopAudioHandler extends SimpleChannelUpstreamHandler {
 		if (m_audioOutputQueue != null) {
 			/* Report output gain */
 			body.append("volume: ");
-			body.append(m_audioOutputQueue.getGain());
+			body.append(m_audioOutputQueue.getRequestedVolume());
 			body.append("\r\n");
 		}
 
@@ -743,7 +773,7 @@ public class RaopAudioHandler extends SimpleChannelUpstreamHandler {
 	private Channel createRtpChannel(final SocketAddress local, final SocketAddress remote, final RaopRtpChannelType channelType)
 	{
 		/* Create bootstrap helper for a data-gram socket using NIO */
-		final ConnectionlessBootstrap bootstrap = new ConnectionlessBootstrap(new NioDatagramChannelFactory(m_rtpExecutorService));
+		final ConnectionlessBootstrap bootstrap = new ConnectionlessBootstrap(new NioDatagramChannelFactory(rtpExecutorService));
 		
 		/* Set the buffer size predictor to 1500 bytes to ensure that
 		 * received packets will fit into the buffer. Packets are

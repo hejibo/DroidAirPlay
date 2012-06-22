@@ -15,7 +15,7 @@
  * along with AirReceiver.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.phlo.AirReceiver;
+package nz.co.iswe.android.airplay.crypto;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
@@ -30,15 +30,13 @@ import java.util.regex.Pattern;
 import javax.crypto.Cipher;
 import javax.crypto.CipherSpi;
 
-public final class AirTunesCrytography {
-	/**
-	 * Class is not meant to be instantiated
-	 */
-	private AirTunesCrytography() {
-		throw new RuntimeException();
-	}
+import org.phlo.AirReceiver.Base64;
+
+//TODO: Change it to a normal POJO without static methods..
+//user IoC to inject this class where necessary as a singleton
+public final class AirTunesCryptography {
 	
-	private static final Logger s_logger = Logger.getLogger(AirTunesCrytography.class.getName());
+	private static final Logger LOG = Logger.getLogger(AirTunesCryptography.class.getName());
 
 	/**
 	 * The JCA/JCE Provider who supplies the necessary cryptographic algorithms
@@ -84,6 +82,14 @@ public final class AirTunesCrytography {
 	public static final RSAPrivateKey PrivateKey = rsaPrivateKeyDecode(PrivateKeyData);
 
 	static final Pattern s_transformation_pattern = Pattern.compile("^([A-Za-z0-9_.-]+)(/([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+))?");
+	
+	/**
+	 * Class is not meant to be instantiated
+	 */
+	private AirTunesCryptography() {
+		throw new RuntimeException();
+	}
+	
 	/**
 	 * Replacement for JCA/JCE's {@link javax.crypto.Cipher#getInstance}.
 	 * The original method only accepts JCE providers from signed jars,
@@ -155,7 +161,7 @@ public final class AirTunesCrytography {
 
 			/* Create a {@link javax.crypto.Cipher} instance from the {@link javax.crypto.CipherSpi} the provider gave us */
 
-			s_logger.info("Using SPI " + cipherSpi.getClass() + " for " + transformation);
+			LOG.info("Using SPI " + cipherSpi.getClass() + " for " + transformation);
 			return getCipher(cipherSpi, transformation.toUpperCase());
 		}
 		catch (final RuntimeException e) {

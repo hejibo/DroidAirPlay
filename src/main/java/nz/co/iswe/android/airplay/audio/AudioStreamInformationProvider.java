@@ -15,9 +15,8 @@
  * along with AirReceiver.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.phlo.AirReceiver;
+package nz.co.iswe.android.airplay.audio;
 
-import javax.sound.sampled.AudioFormat;
 
 /**
  * Provides information about an audio stream
@@ -27,17 +26,28 @@ public interface AudioStreamInformationProvider {
 	 * The JavaSoune audio format of the streamed audio
 	 * @return the AudioFormat
 	 */
-	public AudioFormat getAudioFormat();
+	//public AudioFormat getAudioFormat();
 	
 	/**
 	 * Average frames per second
 	 * @return frames per second
 	 */
-	public int getFramesPerPacket();
+	int getFramesPerPacket();
 	
 	/**
 	 * Average packets per second
 	 * @return packets per second
 	 */
-	public double getPacketsPerSecond();
+	double getPacketsPerSecond();
+
+	//Audio Format Sample Rate
+	int getSampleRate();
+	
+	int getSampleSizeInBits();
+	
+	//Number of audio channels : 1 mono / 2 stereo
+	int getChannels();
+	
+	//The format in which the audio data is represented. See Android AudioFormat.ENCODING_PCM_16BIT and Android AudioFormat.ENCODING_PCM_8BIT
+	int getAudioFormat();
 }

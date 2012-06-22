@@ -78,8 +78,9 @@ public class RaopRtpAudioDecryptionHandler extends OneToOneDecoder {
 
 	@Override
 	protected synchronized Object decode(final ChannelHandlerContext ctx, final Channel channel, final Object msg)
-		throws Exception
-	{
+		throws Exception {
+		
+		//check the message type
 		if (msg instanceof RaopRtpPacket.Audio) {
 			final RaopRtpPacket.Audio audioPacket = (RaopRtpPacket.Audio)msg;
 			final ChannelBuffer audioPayload = audioPacket.getPayload();
@@ -88,10 +89,14 @@ public class RaopRtpAudioDecryptionHandler extends OneToOneDecoder {
 			 * encrypted data with the corresponding plain text
 			 */
 			aesCipher.init(Cipher.DECRYPT_MODE, m_aesKey, m_aesIv);
-			for(int i=0; (i + 16) <= audioPayload.capacity(); i += 16) {
-				byte[] block = new byte[16];
+			
+			for(int i = 0; (i + 16) <= audioPayload.capacity(); i += 16) {
+				byte[] block = new byte[16];//buffer for decrypting the data
+				//copy the bytes to the buffer
 				audioPayload.getBytes(i, block);
+				//decrypt the 16 bytes block
 				block = aesCipher.update(block);
+				//set it back to the channel
 				audioPayload.setBytes(i, block);
 			}
 		}

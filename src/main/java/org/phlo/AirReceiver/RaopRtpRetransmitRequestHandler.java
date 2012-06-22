@@ -20,6 +20,8 @@ package org.phlo.AirReceiver;
 import java.util.*;
 import java.util.logging.Logger;
 
+import nz.co.iswe.android.airplay.audio.AudioStreamInformationProvider;
+
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelHandlerContext;
 import org.jboss.netty.channel.MessageEvent;
