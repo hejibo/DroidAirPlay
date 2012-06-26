@@ -15,10 +15,13 @@
  * along with AirReceiver.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.phlo.AirReceiver;
+package nz.co.iswe.android.airplay.network;
 
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
+import nz.co.iswe.android.airplay.network.raop.RaopRtpPacket;
+import nz.co.iswe.android.airplay.network.rtp.RtpPacket;
 
 import org.jboss.netty.channel.ChannelHandlerContext;
 import org.jboss.netty.channel.MessageEvent;
@@ -28,46 +31,46 @@ import org.jboss.netty.channel.SimpleChannelHandler;
  * Logs incoming and outgoing RTP packets
  */
 public class RtpLoggingHandler extends SimpleChannelHandler {
-	private static final Logger s_logger = Logger.getLogger(RtpLoggingHandler.class.getName());
+	
+	private static final Logger LOG = Logger.getLogger(RtpLoggingHandler.class.getName());
 
 	@Override
-	public void messageReceived(final ChannelHandlerContext ctx, final MessageEvent evt)
-		throws Exception
-	{
+	public void messageReceived(final ChannelHandlerContext ctx, final MessageEvent evt) throws Exception {
 		if (evt.getMessage() instanceof RtpPacket) {
 			final RtpPacket packet = (RtpPacket)evt.getMessage();
-
 			final Level level = getPacketLevel(packet);
-			if (s_logger.isLoggable(level))
-				s_logger.log(level, evt.getRemoteAddress() + "> " + packet.toString());
+			if (LOG.isLoggable(level)){
+				LOG.log(level, evt.getRemoteAddress() + "> " + packet.toString());
+			}
 		}
-
 		super.messageReceived(ctx, evt);
 	}
 
 	@Override
-	public void writeRequested(final ChannelHandlerContext ctx, final MessageEvent evt)
-		throws Exception
-	{
+	public void writeRequested(final ChannelHandlerContext ctx, final MessageEvent evt) throws Exception {
 		if (evt.getMessage() instanceof RtpPacket) {
 			final RtpPacket packet = (RtpPacket)evt.getMessage();
 
 			final Level level = getPacketLevel(packet);
-			if (s_logger.isLoggable(level))
-				s_logger.log(level, evt.getRemoteAddress() + "< " + packet.toString());
+			if (LOG.isLoggable(level)){
+				LOG.log(level, evt.getRemoteAddress() + "< " + packet.toString());
+			}
 		}
-
 		super.writeRequested(ctx, evt);
 	}
 
 	private Level getPacketLevel(final RtpPacket packet) {
-		if (packet instanceof RaopRtpPacket.Audio)
+		if (packet instanceof RaopRtpPacket.Audio){
 			return Level.FINEST;
-		else if (packet instanceof RaopRtpPacket.RetransmitRequest)
+		}
+		else if (packet instanceof RaopRtpPacket.RetransmitRequest){
 			return Level.FINEST;
-		else if (packet instanceof RaopRtpPacket.Timing)
-			return Level.FINEST;
-		else
+		}
+		else if (packet instanceof RaopRtpPacket.Timing){
+			return Level.INFO;
+		}
+		else{
 			return Level.FINE;
+		}
 	}
 }

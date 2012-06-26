@@ -113,12 +113,12 @@ public class AudioOutputQueue implements AudioClock {
 	/**
 	 * Number of frames appended to the line
 	 */
-	private long m_lineFramesWritten = 0;
+	private long framesWrittenToLine = 0;
 
 	/**
 	 * Largest frame time seen so far
 	 */
-	private long m_latestSeenFrameTime = 0;
+	private long latestSeenFrameTime = 0;
 
 	/**
 	 * The frame time corresponding to line time zero
@@ -246,6 +246,10 @@ public class AudioOutputQueue implements AudioClock {
 						final long entryFrameTime = frameQueue.firstKey();
 						final long entryLineTime = convertFrameToLineTime(entryFrameTime);
 						final long gapFrames = entryLineTime - getNextLineTime();
+						
+						
+						LOG.info("** gapFrames: " + gapFrames + " packetSizeFrames: " +  packetSizeFrames);
+						
 						if (gapFrames < -packetSizeFrames) {
 							/* Too late for playback */
 							LOG.warning("Audio data was scheduled for playback " + (-gapFrames) + " frames ago, skipping");
@@ -277,7 +281,9 @@ public class AudioOutputQueue implements AudioClock {
 
 							/* Append packet to line */
 							LOG.finest("Audio data containing " + nextPlaybackSamplesLength / bytesPerFrame + " frames for playback time " + entryFrameTime + " found in queue, appending to the output line");
+							
 							appendFrames(nextPlaybackSamples, 0, nextPlaybackSamplesLength, entryLineTime);
+							
 							continue;
 						}
 						else {
@@ -425,7 +431,7 @@ public class AudioOutputQueue implements AudioClock {
 			
 			/* Update state */
 			synchronized(AudioOutputQueue.this) {
-				m_lineFramesWritten += bytesWritten / bytesPerFrame;
+				framesWrittenToLine += (bytesWritten / bytesPerFrame);
 				
 				for(int b=0; b < bytesPerFrame; ++b){
 					lineLastFrame[b] = samples[off + len - (bytesPerFrame - b)];
@@ -527,12 +533,16 @@ public class AudioOutputQueue implements AudioClock {
 		/* Compute playback delay, i.e., the difference between the last sample's
 		 * playback time and the current line time
 		 */
-		final double delay =
-			(convertFrameToLineTime(frameTime) + frames.length / bytesPerFrame - getNextLineTime()) /
-			sampleRate;
+		long nextLineTime = getNextLineTime();
+		long frameToLineTime = convertFrameToLineTime(frameTime); 
+		final double delay = (frameToLineTime + frames.length / bytesPerFrame - nextLineTime) / sampleRate;
 
-		m_latestSeenFrameTime = Math.max(m_latestSeenFrameTime, frameTime);
-
+		//LOG.info("frameTimeOffset: " + frameTimeOffset + " frameToLineTime: " + frameToLineTime + " frameTime: " + frameTime + " frames.length: " + frames.length + " bytesPerFrame: " + bytesPerFrame + " getNextLineTime(): " + nextLineTime + " sampleRate: " + sampleRate);
+		
+		latestSeenFrameTime = Math.max(latestSeenFrameTime, frameTime);
+		
+		LOG.info(" delay: " + delay );
+		
 		if (delay < -packetSeconds) {
 			/* The whole packet is scheduled to be played in the past */
 			LOG.warning("Audio data arrived " + -(delay) + " seconds too late, dropping");
@@ -565,18 +575,20 @@ public class AudioOutputQueue implements AudioClock {
 		final long frameTimeOffsetPrevious = frameTimeOffset;
 		frameTimeOffset = frameTime - lineTime;
 
-		LOG.fine("Frame time adjusted by " + (frameTimeOffset - frameTimeOffsetPrevious) + " based on timing information " + ageSeconds + " seconds old and " + (m_latestSeenFrameTime - frameTime) + " frames before latest seen frame time");
+		LOG.info("Frame time adjusted by " + (frameTimeOffset - frameTimeOffsetPrevious) + " based on timing information " + ageSeconds + " seconds old and " + (latestSeenFrameTime - frameTime) + " frames before latest seen frame time. previous: " + frameTimeOffsetPrevious + " new frameTimeOffset: " + frameTimeOffset);
 	}
 
 	@Override
 	public double getNowSecondsTime() {
-		return secondsTimeOffset + getNowLineTime() / sampleRate;
+		double value = secondsTimeOffset + getNowLineTime() / sampleRate; 
+		//LOG.info("getNowSecondsTime(): " + value);
+		return value;
 	}
 
-	@Override
-	public long getNowFrameTime() {
-		return frameTimeOffset + getNowLineTime();
-	}
+	//@Override
+	//public long getNowFrameTime() {
+	//	return frameTimeOffset + getNowLineTime();
+	//}
 
 	@Override
 	public double getNextSecondsTime() {
@@ -594,14 +606,15 @@ public class AudioOutputQueue implements AudioClock {
 	}
 
 	private synchronized long getNextLineTime() {
-		return m_lineFramesWritten;
+		return framesWrittenToLine;
 	}
 
 	private long getNowLineTime() {
 		//getPlaybackHeadPosition()
 		//getNotificationMarkerPosition
 		//return audioTrack.getNotificationMarkerPosition();
-		return audioTrack.getPlaybackHeadPosition();
+		long value = audioTrack.getPlaybackHeadPosition();
+		return value;
 		//return m_line.getLongFramePosition();
 	}
 

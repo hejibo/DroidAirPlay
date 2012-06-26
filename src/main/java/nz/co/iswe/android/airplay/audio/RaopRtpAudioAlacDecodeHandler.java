@@ -21,11 +21,12 @@ import java.util.Arrays;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import nz.co.iswe.android.airplay.network.raop.RaopRtpPacket;
+
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelHandlerContext;
 import org.jboss.netty.handler.codec.oneone.OneToOneDecoder;
 import org.phlo.AirReceiver.ProtocolException;
-import org.phlo.AirReceiver.RaopRtpPacket;
 
 import android.media.AudioFormat;
 
@@ -162,11 +163,11 @@ public class RaopRtpAudioAlacDecodeHandler extends OneToOneDecoder implements Au
 		RaopRtpPacket.Audio pcmPacket;
 		if (alacPacket instanceof RaopRtpPacket.AudioTransmit) {
 			pcmPacket = new RaopRtpPacket.AudioTransmit(pcmSamplesLength * 4);
-			alacPacket.getBuffer().getBytes(0, pcmPacket.getBuffer(), 0, RaopRtpPacket.AudioTransmit.Length);
+			alacPacket.getBuffer().getBytes(0, pcmPacket.getBuffer(), 0, RaopRtpPacket.AudioTransmit.LENGTH);
 		}
 		else if (alacPacket instanceof RaopRtpPacket.AudioRetransmit) {
 			pcmPacket = new RaopRtpPacket.AudioRetransmit(pcmSamplesLength * 4);
-			alacPacket.getBuffer().getBytes(0, pcmPacket.getBuffer(), 0, RaopRtpPacket.AudioRetransmit.Length);
+			alacPacket.getBuffer().getBytes(0, pcmPacket.getBuffer(), 0, RaopRtpPacket.AudioRetransmit.LENGTH);
 		}
 		else{
 			throw new ProtocolException("Packet type " + alacPacket.getClass() + " is not supported by the ALAC decoder");

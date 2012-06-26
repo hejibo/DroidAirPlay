@@ -33,7 +33,7 @@ public interface AudioClock {
 	 * 
 	 * @return time of currently played sample
 	 */
-	long getNowFrameTime();
+	//long getNowFrameTime();
 
 	/**
 	 * Returns the earliest time in samples for which data

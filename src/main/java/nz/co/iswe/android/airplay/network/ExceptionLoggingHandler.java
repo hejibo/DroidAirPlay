@@ -15,7 +15,7 @@
  * along with AirReceiver.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.phlo.AirReceiver;
+package nz.co.iswe.android.airplay.network;
 
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -26,11 +26,11 @@ import org.jboss.netty.channel.*;
  * Logs exceptions thrown by other channel handlers
  */
 public class ExceptionLoggingHandler extends SimpleChannelHandler {
-	private static Logger s_logger = Logger.getLogger(ExceptionLoggingHandler.class.getName());
+	private static Logger LOG = Logger.getLogger(ExceptionLoggingHandler.class.getName());
 
 	@Override
 	public void exceptionCaught(final ChannelHandlerContext ctx, final ExceptionEvent evt) throws Exception {
 		super.exceptionCaught(ctx, evt);
-		s_logger.log(Level.WARNING, "Handler raised exception", evt.getCause());
+		LOG.log(Level.WARNING, "Handler raised exception", evt.getCause());
 	}
 }

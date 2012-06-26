@@ -21,6 +21,7 @@ import java.util.*;
 import java.util.logging.Logger;
 
 import nz.co.iswe.android.airplay.audio.AudioStreamInformationProvider;
+import nz.co.iswe.android.airplay.network.raop.RaopRtpPacket;
 
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelHandlerContext;

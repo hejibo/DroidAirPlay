@@ -15,10 +15,11 @@
  * along with AirReceiver.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package nz.co.iswe.android.airplay.network.rtsp;
+package nz.co.iswe.android.airplay.network.raop;
 
 import nz.co.iswe.android.airplay.AirPlayServer;
 import nz.co.iswe.android.airplay.audio.RaopAudioHandler;
+import nz.co.iswe.android.airplay.network.ExceptionLoggingHandler;
 import nz.co.iswe.android.airplay.network.NetworkUtils;
 
 import org.jboss.netty.channel.ChannelHandlerContext;
@@ -29,7 +30,6 @@ import org.jboss.netty.channel.Channels;
 import org.jboss.netty.channel.SimpleChannelUpstreamHandler;
 import org.jboss.netty.handler.codec.rtsp.RtspRequestDecoder;
 import org.jboss.netty.handler.codec.rtsp.RtspResponseEncoder;
-import org.phlo.AirReceiver.ExceptionLoggingHandler;
 import org.phlo.AirReceiver.RaopRtspChallengeResponseHandler;
 import org.phlo.AirReceiver.RaopRtspHeaderHandler;
 import org.phlo.AirReceiver.RaopRtspOptionsHandler;

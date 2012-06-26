@@ -15,24 +15,25 @@
  * along with AirReceiver.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.phlo.AirReceiver;
+package nz.co.iswe.android.airplay.network.raop;
 
 import java.util.logging.Logger;
+
 
 import org.jboss.netty.buffer.*;
 import org.jboss.netty.channel.*;
 import org.jboss.netty.handler.codec.oneone.OneToOneDecoder;
+import org.phlo.AirReceiver.InvalidPacketException;
 
 /**
  * Decodes incoming packets, emitting instances of {@link RaopRtpPacket}
  */
 public class RaopRtpDecodeHandler extends OneToOneDecoder {
-	private static final Logger s_logger = Logger.getLogger(RaopRtpDecodeHandler.class.getName());
+	
+	private static final Logger LOG = Logger.getLogger(RaopRtpDecodeHandler.class.getName());
 
 	@Override
-	protected Object decode(final ChannelHandlerContext ctx, final Channel channel, final Object msg)
-		throws Exception
-	{
+	protected Object decode(final ChannelHandlerContext ctx, final Channel channel, final Object msg) throws Exception {
 		if (msg instanceof ChannelBuffer) {
 			final ChannelBuffer buffer = (ChannelBuffer)msg;
 
@@ -40,7 +41,7 @@ public class RaopRtpDecodeHandler extends OneToOneDecoder {
 				return RaopRtpPacket.decode(buffer);
 			}
 			catch (final InvalidPacketException e1) {
-				s_logger.warning(e1.getMessage());
+				LOG.warning(e1.getMessage());
 				return buffer;
 			}
 		}

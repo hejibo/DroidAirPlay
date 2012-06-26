@@ -22,20 +22,20 @@ package org.phlo.AirReceiver;
  * over a series of values.
  */
 public class RunningExponentialAverage {
-	public double m_value = Double.NaN;
+	public double value = Double.NaN;
 
 	/**
 	 * Create an exponential average without an initial value
 	 */
 	public RunningExponentialAverage() {
-		m_value = Double.NaN;
+		value = Double.NaN;
 	}
 
 	/**
 	 * Create an exponential average with the given initial value
 	 */
 	public RunningExponentialAverage(final double initialValue) {
-		m_value = initialValue;
+		value = initialValue;
 	}
 
 	/**
@@ -45,11 +45,11 @@ public class RunningExponentialAverage {
 	 * @param weight the value's weight between 0 and 1.
 	 */
 	public void add(final double value, final double weight) {
-		if (Double.isNaN(m_value)) {
-			m_value = value;
+		if (Double.isNaN(this.value)) {
+			this.value = value;
 		}
 		else {
-			m_value = value * weight + m_value * (1.0 - weight);
+			this.value = value * weight + this.value * (1.0 - weight);
 		}
 	}
 
@@ -59,7 +59,7 @@ public class RunningExponentialAverage {
 	 * Otherwise, always returns false.
 	 */
 	public boolean isEmpty() {
-		return Double.isNaN(m_value);
+		return Double.isNaN(value);
 	}
 
 	/**
@@ -67,6 +67,6 @@ public class RunningExponentialAverage {
 	 * @return exponential average
 	 */
 	public double get() {
-		return m_value;
+		return value;
 	}
 }

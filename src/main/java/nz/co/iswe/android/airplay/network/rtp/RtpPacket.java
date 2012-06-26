@@ -15,41 +15,44 @@
  * along with AirReceiver.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.phlo.AirReceiver;
+package nz.co.iswe.android.airplay.network.rtp;
 
 import org.jboss.netty.buffer.*;
+import org.phlo.AirReceiver.InvalidPacketException;
+import org.phlo.AirReceiver.ProtocolException;
 
 /**
  * Basic RTP packet as described by RFC 3550
  */
 public class RtpPacket {
-	public static final int Length = 4;
+	public static final int LENGTH = 4;
 
-	final private ChannelBuffer m_buffer;
+	final private ChannelBuffer buffer;
 
 	protected RtpPacket(final int size) {
-		assert size >= Length;
-		m_buffer = ChannelBuffers.buffer(size);
-		m_buffer.writeZero(size);
+		assert size >= LENGTH;
+		buffer = ChannelBuffers.buffer(size);
+		buffer.writeZero(size);
 		setVersion((byte)2);
 	}
 
 	public RtpPacket(final ChannelBuffer buffer) throws ProtocolException {
-		m_buffer = buffer;
+		this.buffer = buffer;
 	}
 
 	public RtpPacket(final ChannelBuffer buffer, final int minimumSize) throws ProtocolException {
 		this(buffer);
-		if (buffer.capacity() < minimumSize)
+		if (buffer.capacity() < minimumSize){
 			throw new InvalidPacketException("Packet had invalid size " + buffer.capacity() + " instead of at least " + minimumSize);
+		}
 	}
 
 	public ChannelBuffer getBuffer() {
-		return m_buffer;
+		return buffer;
 	}
 
 	public int getLength() {
-		return m_buffer.capacity();
+		return buffer.capacity();
 	}
 
 	/**
@@ -57,7 +60,7 @@ public class RtpPacket {
 	 * @return RTP version number
 	 */
 	public byte getVersion() {
-		return (byte)((m_buffer.getByte(0) & (0xC0)) >> 6);
+		return (byte)((buffer.getByte(0) & (0xC0)) >> 6);
 	}
 
 	/**
@@ -66,7 +69,7 @@ public class RtpPacket {
 	 */
 	public void setVersion(final byte version) {
 		assert (version & ~0x03) == 0;
-		m_buffer.setByte(0, (m_buffer.getByte(0) & ~(0xC0)) | (version << 6));
+		buffer.setByte(0, (buffer.getByte(0) & ~(0xC0)) | (version << 6));
 	}
 
 	/**
@@ -74,7 +77,7 @@ public class RtpPacket {
 	 * @return RTP padding flag
 	 */
 	public boolean getPadding() {
-		return (m_buffer.getByte(0) & (0x20)) != 0;
+		return (buffer.getByte(0) & (0x20)) != 0;
 	}
 
 	/**
@@ -82,7 +85,7 @@ public class RtpPacket {
 	 * @param padding RTP padding flag
 	 */
 	public void setPadding(final boolean padding) {
-		m_buffer.setByte(0, (m_buffer.getByte(0) & ~0x20) | (padding ? 0x20 : 0x00));
+		buffer.setByte(0, (buffer.getByte(0) & ~0x20) | (padding ? 0x20 : 0x00));
 	}
 
 	/**
@@ -90,7 +93,7 @@ public class RtpPacket {
 	 * @return RTP padding flag
 	 */
 	public boolean getExtension() {
-		return (m_buffer.getByte(0) & (0x10)) != 0;
+		return (buffer.getByte(0) & (0x10)) != 0;
 	}
 
 	/**
@@ -98,7 +101,7 @@ public class RtpPacket {
 	 * @param padding RTP padding flag
 	 */
 	public void setExtension(final boolean extension) {
-		m_buffer.setByte(0, (m_buffer.getByte(0) & ~0x10) | (extension ? 0x10 : 0x00));
+		buffer.setByte(0, (buffer.getByte(0) & ~0x10) | (extension ? 0x10 : 0x00));
 	}
 
 	/**
@@ -108,7 +111,7 @@ public class RtpPacket {
 	 * @return nubmer of CSRC ids
 	 */
 	public byte getCsrcCount() {
-		return (byte)(m_buffer.getByte(0) & (0x0f));
+		return (byte)(buffer.getByte(0) & (0x0f));
 	}
 
 	/**
@@ -120,7 +123,7 @@ public class RtpPacket {
 	 */
 	public void setCsrcCount(final byte csrcCount) {
 		assert (csrcCount & ~0x0f) == 0;
-		m_buffer.setByte(0, (m_buffer.getByte(0) & ~0x0f) | csrcCount);
+		buffer.setByte(0, (buffer.getByte(0) & ~0x0f) | csrcCount);
 	}
 
 	/**
@@ -128,7 +131,7 @@ public class RtpPacket {
 	 * @param marker RTP marker flag
 	 */
 	public boolean getMarker() {
-		return (m_buffer.getByte(1) & (0x80)) != 0;
+		return (buffer.getByte(1) & (0x80)) != 0;
 	}
 
 	/**
@@ -136,7 +139,7 @@ public class RtpPacket {
 	 * @param marker RTP marker flag
 	 */
 	public void setMarker(final boolean marker) {
-		m_buffer.setByte(1, (m_buffer.getByte(1) & ~0x80) | (marker ? 0x80 : 0x00));
+		buffer.setByte(1, (buffer.getByte(1) & ~0x80) | (marker ? 0x80 : 0x00));
 	}
 
 	/**
@@ -144,7 +147,7 @@ public class RtpPacket {
 	 * @return packet's payload type
 	 */
 	public byte getPayloadType() {
-		return (byte)(m_buffer.getByte(1) & (0x7f));
+		return (byte)(buffer.getByte(1) & (0x7f));
 	}
 
 	/**
@@ -153,7 +156,7 @@ public class RtpPacket {
 	 */
 	public void setPayloadType(final byte payloadType) {
 		assert (payloadType & ~0x7f) == 0;
-		m_buffer.setByte(1, (m_buffer.getByte(1) & ~0x7f) | payloadType);
+		buffer.setByte(1, (buffer.getByte(1) & ~0x7f) | payloadType);
 	}
 
 	/**
@@ -162,8 +165,8 @@ public class RtpPacket {
 	 */
 	public int getSequence() {
 		return (
-			((m_buffer.getByte(2) & 0xff) << 8) |
-			((m_buffer.getByte(3) & 0xff) << 0)
+			((buffer.getByte(2) & 0xff) << 8) |
+			((buffer.getByte(3) & 0xff) << 0)
 		);
 	}
 
@@ -173,8 +176,8 @@ public class RtpPacket {
 	 */
 	public void setSequence(final int sequence) {
 		assert (sequence & ~0xffff) == 0;
-		m_buffer.setByte(2, (sequence & 0xff00) >> 8);
-		m_buffer.setByte(3, (sequence & 0x00ff) >> 0);
+		buffer.setByte(2, (sequence & 0xff00) >> 8);
+		buffer.setByte(3, (sequence & 0x00ff) >> 0);
 	}
 
 	@Override

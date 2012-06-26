@@ -15,7 +15,9 @@
  * along with AirReceiver.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.phlo.AirReceiver;
+package nz.co.iswe.android.airplay.network;
+
+import nz.co.iswe.android.airplay.network.rtp.RtpPacket;
 
 import org.jboss.netty.channel.*;
 import org.jboss.netty.handler.codec.oneone.OneToOneEncoder;
@@ -25,12 +27,12 @@ import org.jboss.netty.handler.codec.oneone.OneToOneEncoder;
  */
 public class RtpEncodeHandler extends OneToOneEncoder {
 	@Override
-	protected Object encode(final ChannelHandlerContext ctx, final Channel channel, final Object msg)
-		throws Exception
-	{
-		if (msg instanceof RtpPacket)
+	protected Object encode(final ChannelHandlerContext ctx, final Channel channel, final Object msg) throws Exception {
+		if (msg instanceof RtpPacket){
 			return ((RtpPacket)msg).getBuffer();
-		else
+		}
+		else{
 			return msg;
+		}
 	}
 }

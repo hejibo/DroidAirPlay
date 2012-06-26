@@ -20,7 +20,7 @@ import javax.jmdns.JmDNS;
 import javax.jmdns.ServiceInfo;
 
 import nz.co.iswe.android.airplay.network.NetworkUtils;
-import nz.co.iswe.android.airplay.network.rtsp.RaopRtspPipelineFactory;
+import nz.co.iswe.android.airplay.network.raop.RaopRtspPipelineFactory;
 
 import org.jboss.netty.bootstrap.ServerBootstrap;
 import org.jboss.netty.channel.ChannelHandler;
