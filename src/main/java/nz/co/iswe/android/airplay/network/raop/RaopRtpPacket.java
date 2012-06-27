@@ -588,7 +588,7 @@ public abstract class RaopRtpPacket extends RtpPacket {
 		final RtpPacket rtpPacket = new RtpPacket(buffer, LENGTH);
 
 		//add log here and compare between the java and android implementations
-		//LOG.info("decode packet. RtpPacket: " + rtpPacket);
+		LOG.finest("decode packet. RtpPacket: " + rtpPacket);
 		
 		switch (rtpPacket.getPayloadType()) {
 			case TimingRequest.PAYLOAD_TYPE: return new TimingRequest(buffer);

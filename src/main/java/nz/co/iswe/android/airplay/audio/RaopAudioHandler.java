@@ -63,7 +63,7 @@ import org.jboss.netty.channel.SimpleChannelUpstreamHandler;
 import org.jboss.netty.channel.UpstreamMessageEvent;
 import org.jboss.netty.channel.group.ChannelGroup;
 import org.jboss.netty.channel.group.DefaultChannelGroup;
-import org.jboss.netty.channel.socket.nio.NioDatagramChannelFactory;
+import org.jboss.netty.channel.socket.oio.OioDatagramChannelFactory;
 import org.jboss.netty.handler.codec.http.DefaultHttpResponse;
 import org.jboss.netty.handler.codec.http.HttpMethod;
 import org.jboss.netty.handler.codec.http.HttpRequest;
@@ -153,8 +153,7 @@ public class RaopAudioHandler extends SimpleChannelUpstreamHandler {
 	 */
 	public class RaopRtpAudioEnqueueHandler extends SimpleChannelUpstreamHandler {
 		@Override
-		public void messageReceived(final ChannelHandlerContext ctx, final MessageEvent evt)
-			throws Exception {
+		public void messageReceived(final ChannelHandlerContext ctx, final MessageEvent evt) throws Exception {
 			if ( ! (evt.getMessage() instanceof RaopRtpPacket.Audio) ) {
 				//in case it is NOT a Audio packet
 				super.messageReceived(ctx, evt);
@@ -172,6 +171,7 @@ public class RaopAudioHandler extends SimpleChannelUpstreamHandler {
 			if (tempAudioOutputQueue != null) {
 				//buffer array the byte with the audio samples
 				final byte[] samples = new byte[audioPacket.getPayload().capacity()];
+				
 				//get the bytes
 				audioPacket.getPayload().getBytes(0, samples);
 				
@@ -213,7 +213,7 @@ public class RaopAudioHandler extends SimpleChannelUpstreamHandler {
 	private ChannelHandler decryptionHandler;
 	private ChannelHandler audioDecodeHandler;
 	private ChannelHandler resendRequestHandler;
-	private ChannelHandler timingHandler;
+	private RaopRtpTimingHandler timingHandler;
 	private final ChannelHandler audioEnqueueHandler = new RaopRtpAudioEnqueueHandler();
 
 	private AudioStreamInformationProvider audioStreamInformationProvider;
@@ -431,8 +431,11 @@ public class RaopAudioHandler extends SimpleChannelUpstreamHandler {
 		for(final String line: sdp.split("\n")) {
 			/* Split SDP line into attribute and setting */
 			final Matcher lineMatcher = s_pattern_sdp_line.matcher(line);
-			if (!lineMatcher.matches())
+			
+			if ( ! lineMatcher.matches()){
 				throw new ProtocolException("Cannot parse SDP line " + line);
+			}
+			
 			final char attribute = lineMatcher.group(1).charAt(0);
 			final String setting = lineMatcher.group(2);
 
@@ -605,7 +608,7 @@ public class RaopAudioHandler extends SimpleChannelUpstreamHandler {
 				final int clientControlPort = Integer.valueOf(value);
 				
 				controlChannel = createRtpChannel(
-					substitutePort((InetSocketAddress)ctx.getChannel().getLocalAddress(), 0),
+					substitutePort((InetSocketAddress)ctx.getChannel().getLocalAddress(), 53670),
 					substitutePort((InetSocketAddress)ctx.getChannel().getRemoteAddress(), clientControlPort),
 					RaopRtpChannelType.Control
 				);
@@ -619,7 +622,7 @@ public class RaopAudioHandler extends SimpleChannelUpstreamHandler {
 				final int clientTimingPort = Integer.valueOf(value);
 				
 				timingChannel = createRtpChannel(
-					substitutePort((InetSocketAddress)ctx.getChannel().getLocalAddress(), 0),
+					substitutePort((InetSocketAddress)ctx.getChannel().getLocalAddress(), 53669),
 					substitutePort((InetSocketAddress)ctx.getChannel().getRemoteAddress(), clientTimingPort),
 					RaopRtpChannelType.Timing
 				);
@@ -636,7 +639,7 @@ public class RaopAudioHandler extends SimpleChannelUpstreamHandler {
 
 		/* Create audio socket and include it's port in our response */
 		audioChannel = createRtpChannel(
-			substitutePort((InetSocketAddress)ctx.getChannel().getLocalAddress(), 0),
+			substitutePort((InetSocketAddress)ctx.getChannel().getLocalAddress(), 53671),
 			null,
 			RaopRtpChannelType.Audio
 		);
@@ -668,14 +671,15 @@ public class RaopAudioHandler extends SimpleChannelUpstreamHandler {
 	 * iTunes reports the initial RTP sequence and playback time here, which would actually be
 	 * helpful. But iOS doesn't, so we ignore it all together.
 	 */
-	public synchronized void recordReceived(final ChannelHandlerContext ctx, final HttpRequest req)
-		throws Exception
-	{
-		if (audioStreamInformationProvider == null)
+	public synchronized void recordReceived(final ChannelHandlerContext ctx, final HttpRequest req) throws Exception {
+		if (audioStreamInformationProvider == null){
 			throw new ProtocolException("Audio stream not configured, cannot start recording");
-
+		}		
 		LOG.info("Client started streaming");
-
+		
+		audioOutputQueue.startAudioProcessing();
+		timingHandler.startTimeSync();
+		
 		final HttpResponse response = new DefaultHttpResponse(RtspVersions.RTSP_1_0,  RtspResponseStatuses.OK);
 		ctx.getChannel().write(response);
 	}
@@ -687,8 +691,9 @@ public class RaopAudioHandler extends SimpleChannelUpstreamHandler {
 	 * helpful. But iOS doesn't, so we ignore it all together.
 	 */
 	private synchronized void flushReceived(final ChannelHandlerContext ctx, final HttpRequest req) {
-		if (audioOutputQueue != null)
+		if (audioOutputQueue != null){
 			audioOutputQueue.flush();
+		}
 
 		LOG.info("Client paused streaming, flushed audio output queue");
 
@@ -722,9 +727,7 @@ public class RaopAudioHandler extends SimpleChannelUpstreamHandler {
 	/**
 	 * Handle SET_PARAMETER request. Currently only {@code volume} is supported
 	 */
-	public synchronized void setParameterReceived(final ChannelHandlerContext ctx, final HttpRequest req)
-		throws ProtocolException
-	{
+	public synchronized void setParameterReceived(final ChannelHandlerContext ctx, final HttpRequest req) throws ProtocolException {
 		/* Body in ASCII encoding with unix newlines */
 		final String body = req.getContent().toString(Charset.forName("ASCII")).replace("\r", "");
 
@@ -733,16 +736,18 @@ public class RaopAudioHandler extends SimpleChannelUpstreamHandler {
 			try {
 				/* Split parameter into name and value */
 				final Matcher m_parameter = s_pattern_parameter.matcher(line);
-				if (!m_parameter.matches())
+				if (!m_parameter.matches()){
 					throw new ProtocolException("Cannot parse line " + line);
+				}
 
 				final String name = m_parameter.group(1);
 				final String value = m_parameter.group(2);
 
 				if ("volume".equals(name)) {
 					/* Set output gain */
-					if (audioOutputQueue != null)
+					if (audioOutputQueue != null){
 						audioOutputQueue.setRequestedVolume(Float.parseFloat(value));
+					}
 
 				}
 			}
@@ -758,9 +763,7 @@ public class RaopAudioHandler extends SimpleChannelUpstreamHandler {
 	/**
 	 * Handle GET_PARAMETER request. Currently only {@code volume} is supported
 	 */
-	public synchronized void getParameterReceived(final ChannelHandlerContext ctx, final HttpRequest req)
-		throws ProtocolException
-	{
+	public synchronized void getParameterReceived(final ChannelHandlerContext ctx, final HttpRequest req) throws ProtocolException {
 		final StringBuilder body = new StringBuilder();
 
 		if (audioOutputQueue != null) {
@@ -785,7 +788,10 @@ public class RaopAudioHandler extends SimpleChannelUpstreamHandler {
 	 */
 	private Channel createRtpChannel(final SocketAddress local, final SocketAddress remote, final RaopRtpChannelType channelType) {
 		/* Create bootstrap helper for a data-gram socket using NIO */
-		final ConnectionlessBootstrap bootstrap = new ConnectionlessBootstrap(new NioDatagramChannelFactory(rtpExecutorService));
+		//final ConnectionlessBootstrap bootstrap = new ConnectionlessBootstrap(new NioDatagramChannelFactory(rtpExecutorService));
+		final ConnectionlessBootstrap bootstrap = new ConnectionlessBootstrap(new OioDatagramChannelFactory(rtpExecutorService));
+		
+		
 		
 		/* Set the buffer size predictor to 1500 bytes to ensure that
 		 * received packets will fit into the buffer. Packets are

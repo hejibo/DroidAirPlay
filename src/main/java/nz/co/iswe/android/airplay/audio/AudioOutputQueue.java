@@ -128,17 +128,17 @@ public class AudioOutputQueue implements AudioClock {
 	/**
 	 * The seconds time corresponding to line time zero
 	 */
-	private final double secondsTimeOffset;
+	private double secondsTimeOffset;
 
 	/**
 	 * Requested volume
 	 */
-	private float requestedVolume = 0.0f;
+	private float requestedVolume = AudioTrack.getMaxVolume();
 	
 	/**
 	 * Current volume
 	 */
-	private float currentVolume = 0.0f;
+	private float currentVolume = AudioTrack.getMaxVolume();
 	
 	public AudioOutputQueue(final AudioStreamInformationProvider streamInfoProvider) {
 		//final AudioFormat audioFormat = streamInfoProvider.getAudioFormat();
@@ -196,13 +196,28 @@ public class AudioOutputQueue implements AudioClock {
 			lineLastFrame[b] = (b % 2 == 0) ? (byte)-128 : (byte)0;
 		}
 
-		/* Start enqueuer thread and wait for the line to start.
+		/* Create enqueuer thread and wait for the line to start.
 		 * The wait guarantees that the AudioClock functions return
 		 * sensible values right after construction
 		 */
 		queueThread.setDaemon(true);
 		queueThread.setName("Audio Enqueuer");
 		queueThread.setPriority(Thread.MAX_PRIORITY);
+		
+		/*
+		queueThread.start();
+		
+		//while ( queueThread.isAlive() && ! m_line.isActive() ){
+		while ( queueThread.isAlive() && audioTrack.getPlayState() != AudioTrack.PLAYSTATE_PLAYING){
+			Thread.yield();
+		}
+		*/
+
+		/* Initialize the seconds time offset now that the line is running. */
+		secondsTimeOffset = 2208988800.0 +  System.currentTimeMillis() * 1e-3;
+	}
+	
+	public void startAudioProcessing(){
 		queueThread.start();
 		
 		//while ( queueThread.isAlive() && ! m_line.isActive() ){
@@ -232,6 +247,8 @@ public class AudioOutputQueue implements AudioClock {
 				//start the audio track
 				audioTrack.play();
 				
+				LOG.info("Audio Track started !!!");
+				
 				boolean lineMuted = true;
 				boolean didWarnGap = false;
 				while ( ! closing) {
@@ -248,7 +265,7 @@ public class AudioOutputQueue implements AudioClock {
 						final long gapFrames = entryLineTime - getNextLineTime();
 						
 						
-						LOG.info("** gapFrames: " + gapFrames + " packetSizeFrames: " +  packetSizeFrames);
+						//LOG.info("** gapFrames: " + gapFrames + " packetSizeFrames: " +  packetSizeFrames);
 						
 						if (gapFrames < -packetSizeFrames) {
 							/* Too late for playback */
@@ -288,7 +305,7 @@ public class AudioOutputQueue implements AudioClock {
 						}
 						else {
 							/* Gap between packet and line end. Warn */
-							if (!didWarnGap) {
+							if ( ! didWarnGap) {
 								didWarnGap = true;
 								LOG.warning("Audio data missing for frame time " + getNextLineTime() + " (currently " + gapFrames + " frames), writing " + packetSizeFrames + " frames of silence");
 							}
@@ -350,7 +367,6 @@ public class AudioOutputQueue implements AudioClock {
 
 				if (Math.abs(timingErrorSeconds) <= TIMING_PRECISION) {
 					/* Samples to append scheduled exactly at line end. Just append them and be done */
-
 					appendFrames(samples, off, len);
 					break;
 				}
@@ -377,6 +393,8 @@ public class AudioOutputQueue implements AudioClock {
 		}
 
 		private void appendSilence(final int frames) {
+			LOG.info("Appending Silence to the AudioTrack. frames: " + frames);
+			
 			final byte[] silenceFrames = new byte[frames * bytesPerFrame];
 			for(int i = 0; i < silenceFrames.length; ++i){
 				silenceFrames[i] = lineLastFrame[i % bytesPerFrame];
@@ -397,13 +415,16 @@ public class AudioOutputQueue implements AudioClock {
 
 			/* Make sure that [off, off+len) does not exceed sample's bounds */
 			off = Math.min(off, (samples != null) ? samples.length : 0);
+			
 			len = Math.min(len, (samples != null) ? samples.length - off : 0);
+			
 			if (len <= 0){
 				return;
 			}
 
 			/* Convert samples if necessary */
-			final byte[] samplesConverted = Arrays.copyOfRange(samples, off, off+len);
+			final byte[] samplesConverted = Arrays.copyOfRange(samples, off, off + len);
+			
 			if (convertUnsignedToSigned) {
 				/* The line expects signed PCM samples, so we must
 				 * convert the unsigned PCM samples to signed.
@@ -417,6 +438,7 @@ public class AudioOutputQueue implements AudioClock {
 			/* Write samples to line */
 			//final int bytesWritten = m_line.write(samplesConverted, 0, samplesConverted.length);
 			final int bytesWritten = audioTrack.write(samplesConverted, 0, samplesConverted.length);
+			
 			if(bytesWritten == AudioTrack.ERROR_INVALID_OPERATION){
 				LOG.severe("Audio Track not initialized properly");
 				throw new RuntimeException("Audio Track not initialized properly: AudioTrack status: ERROR_INVALID_OPERATION");
@@ -427,6 +449,9 @@ public class AudioOutputQueue implements AudioClock {
 			}
 			else if (bytesWritten != len){
 				LOG.warning("Audio output line accepted only " + bytesWritten + " bytes of sample data while trying to write " + samples.length + " bytes");
+			}
+			else{
+				LOG.info(bytesWritten + " bytes written to the audio output line");
 			}
 			
 			/* Update state */
@@ -463,6 +488,11 @@ public class AudioOutputQueue implements AudioClock {
 	 * 
 	 */
 	private void setStereoVolume(float leftVolume, float rightVolume) {
+		
+		
+		leftVolume = AudioTrack.getMaxVolume();
+		rightVolume = AudioTrack.getMaxVolume();
+		
 		//validate left volume
 		if(leftVolume < AudioTrack.getMinVolume()){
 			leftVolume = AudioTrack.getMinVolume();
@@ -478,6 +508,8 @@ public class AudioOutputQueue implements AudioClock {
 		if(rightVolume > AudioTrack.getMaxVolume()){
 			rightVolume = AudioTrack.getMaxVolume();
 		}
+		
+		LOG.info("setStereoVolume() leftVolume: " + leftVolume + " rightVolume: " + rightVolume);
 		
 		audioTrack.setStereoVolume(leftVolume, rightVolume);
 	}
@@ -537,8 +569,6 @@ public class AudioOutputQueue implements AudioClock {
 		long frameToLineTime = convertFrameToLineTime(frameTime); 
 		final double delay = (frameToLineTime + frames.length / bytesPerFrame - nextLineTime) / sampleRate;
 
-		//LOG.info("frameTimeOffset: " + frameTimeOffset + " frameToLineTime: " + frameToLineTime + " frameTime: " + frameTime + " frames.length: " + frames.length + " bytesPerFrame: " + bytesPerFrame + " getNextLineTime(): " + nextLineTime + " sampleRate: " + sampleRate);
-		
 		latestSeenFrameTime = Math.max(latestSeenFrameTime, frameTime);
 		
 		LOG.info(" delay: " + delay );
@@ -556,6 +586,8 @@ public class AudioOutputQueue implements AudioClock {
 			return false;
 		}
 
+		LOG.info("frames added to the frameQueue. frameTime: " + frameTime + " frames.length: " + frames.length + " frames: " + frames);
+		
 		frameQueue.put(frameTime, frames);
 		return true;
 	}
@@ -613,9 +645,15 @@ public class AudioOutputQueue implements AudioClock {
 		//getPlaybackHeadPosition()
 		//getNotificationMarkerPosition
 		//return audioTrack.getNotificationMarkerPosition();
-		long value = audioTrack.getPlaybackHeadPosition();
-		return value;
 		//return m_line.getLongFramePosition();
+		if(audioTrack.getPlayState() == AudioTrack.PLAYSTATE_PLAYING){
+			long value = audioTrack.getPlaybackHeadPosition();
+			return value;
+		}
+		else{
+			LOG.warning("getNowLineTime() called while audioTrack is not on a Playing State");
+			return 0;
+		}
 	}
 
 	private synchronized long convertFrameToLineTime(final long entryFrameTime) {

@@ -42,7 +42,7 @@ public class RaopRtpTimingHandler extends SimpleChannelHandler {
 	/**
 	 * Number of seconds between {@link TimingRequest}s.
 	 */
-	public static final double TIME_REQUEST_INTERVAL = 0.2;
+	public static final double TIME_REQUEST_INTERVAL = 3;
 
 	/**
 	 * Thread which sends out {@link TimingRequests}s.
@@ -91,6 +91,8 @@ public class RaopRtpTimingHandler extends SimpleChannelHandler {
 	 */
 	private Thread synchronizationThread;
 
+	private boolean started = false;
+	
 	public RaopRtpTimingHandler(final AudioClock audioClock) {
 		this.audioClock = audioClock;
 	}
@@ -100,16 +102,23 @@ public class RaopRtpTimingHandler extends SimpleChannelHandler {
 		
 		channelClosed(ctx, evt);
 
-		/* Start synchronization thread if it isn't already running */
+		/* create synchronization thread if it isn't already running */
 		if (synchronizationThread == null) {
 			synchronizationThread = new Thread(new TimingRequester(ctx.getChannel()));
 			synchronizationThread.setDaemon(true);
 			synchronizationThread.setName("Time Synchronizer");
+		}
+		
+		super.channelOpen(ctx, evt);
+	}
+	
+	public synchronized void startTimeSync(){
+		/* Start synchronization thread if it isn't already running */
+		if (synchronizationThread != null && ! started) {
 			synchronizationThread.start();
 			LOG.info("Time synchronizer started");
+			started = true;
 		}
-
-		super.channelOpen(ctx, evt);
 	}
 
 	@Override
