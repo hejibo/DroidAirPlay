@@ -186,8 +186,10 @@ public class AudioOutputQueue implements AudioClock {
 		mode = AudioTrack.MODE_STREAM;
 		
 		//create the AudioTrack
-		audioTrack = new AudioTrack(streamType, sampleRateInHz, channelConfig, audioFormat, bufferSizeInBytes, mode);
-		
+		// audioTrack = new AudioTrack(streamType, sampleRateInHz, channelConfig, audioFormat, bufferSizeInBytes, mode);
+		// AudioFormat.CHANNEL_OUT_STEREO means 2 channels 
+		audioTrack = new AudioTrack(streamType, sampleRateInHz, AudioFormat.CHANNEL_OUT_STEREO, audioFormat, bufferSizeInBytes, mode);
+
 		LOG.info("AudioTrack created succesfully with a buffer of : " + bufferSizeInBytes + " bytes and : " + bufferSizeInBytes / bytesPerFrame + " frames.");
 			
 		//create initial array of "filler" bytes ....
